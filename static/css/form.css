@@ -1,0 +1,118 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f0f2f5;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    margin: 0;
+    padding-top: 30px;
+}
+
+.container {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    width: 90%;
+    max-width: 500px;
+    box-sizing: border-box;
+    margin: 0 auto;
+}
+
+.container h2 {
+    text-align: center;
+    color: #333;
+}
+
+.container p {
+    margin: 6px 0;
+}
+
+form label {
+    font-weight: bold;
+    display: block;
+    margin: 10px 0 5px;
+}
+
+form select, input[type="checkbox"], button {
+    margin-bottom: 10px;
+}
+
+input[type="text"], select, button {
+    font-size: 16px;
+}
+
+select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background-color: #f9f9f9;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+select::-ms-expand {
+    display: none;
+}
+
+option {
+    padding: 10px;
+    background-color: #ffffff;
+    color: #333;
+}
+
+input[type="checkbox"] {
+    transform: scale(1.2);
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+button {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+button[type="submit"] {
+    background-color: #4CAF50;
+    color: white;
+}
+
+button[type="submit"]:hover {
+    background-color: #45a049;
+}
+
+form[action*="logout"] button {
+    background-color: #e74c3c;
+    color: white;
+}
+
+form[action*="logout"] button:hover {
+    background-color: #c0392b;
+}
+
+ul li {
+    background: #f0f8ff;
+    padding: 5px 10px;
+    border-radius: 8px;
+    margin-bottom: 5px;
+    border-left: 4px solid #4CAF50;
+}
+
+@media (max-width: 400px) {
+    .container {
+        padding: 20px;
+    }
+    select, input[type="text"], button {
+        font-size: 14px;
+        padding: 8px 10px;
+    }
+    input[type="checkbox"] {
+        transform: scale(1.1);
+    }
+}

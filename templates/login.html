@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Đăng nhập TLU</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+</head>
+<body>
+
+<div class="login-form">
+  <h2>Đăng nhập TLU</h2>
+  <form method="POST">
+    MSSV: <input type="text" name="username" required><br>
+    Mật khẩu: <input type="password" name="password" required><br>
+    <button type="submit">Đăng nhập</button>
+  </form>
+
+  {% if error %}
+  <p style="color:red">{{ error }}</p>
+  {% endif %}
+</div>
+
+</body>
+</html>

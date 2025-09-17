@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đã lưu</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/form.css') }}">
+</head>
+<body>
+  <div class="container">
+    <h2>Hoàn tất</h2>
+
+    <p style="font-size:18px; margin-top:10px;">
+      ✅ Dữ liệu <strong>{{ name }}</strong> đã được lưu/cập nhật vào lớp
+      <strong>{{ registered_class }}</strong>!
+    </p>
+
+    <p style="margin-top:6px;">Bạn có thể đăng xuất hoặc quay lại trang chính để sửa thông tin.</p>
+
+    <div style="margin-top:20px;">
+      <form method="GET" action="{{ url_for('logout') }}" style="margin-bottom:10px;">
+        <button type="submit">Đăng xuất</button>
+      </form>
+
+      <form method="GET" action="{{ url_for('form') }}">
+        <button type="submit">Quay lại</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
