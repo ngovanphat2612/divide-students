@@ -1,8 +1,10 @@
-from flask import Flask, request, session, redirect, url_for, render_template
+from flask import Flask, request, session, redirect, url_for, render_template, send_file
+from chia_nhom import prepare_df, compute_scores, process_ca, summarize_groups_html, GROUP_SIZE
 import requests
 import csv
 import os
 import urllib3
+import io
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -57,6 +59,9 @@ def login():
             session["access_token"] = token_info["access_token"]
             session["username"] = username
             return redirect(url_for("form"))
+        elif username == ADMIN_USER and password == ADMIN_PASS:
+            session["is_admin"] = True
+            return redirect(url_for("admin"))
         else:
             return render_template("login.html", error="Sai MSSV hoặc mật khẩu")
 
@@ -184,6 +189,101 @@ def form():
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+import pandas as pd
+
+ADMIN_USER = "admin"
+ADMIN_PASS = "123456"  # đổi theo ý bạn
+
+@app.route("/admin", methods=["GET", "POST"])
+def admin():
+    if "is_admin" not in session:
+        return redirect(url_for("login"))
+
+    classes = ["64HTTT1", "64HTTT2", "64HTTT3", "64HTTT4"]
+    selected_class = request.args.get("class")
+    df = None
+    grouped = None
+    output_file = None
+    html_summaries = []
+
+    if selected_class:
+        file_path = f"{selected_class}.csv"
+        if os.path.exists(file_path):
+            df = pd.read_csv(file_path, encoding="utf-8-sig")
+            df = df.reset_index(drop=True)
+            df.insert(0, "STT", df.index + 1)
+
+        action = request.args.get("action")
+        if action == "group" and df is not None:
+            df_scored = compute_scores(prepare_df(file_path))
+            for ca in df_scored["Ca học"].unique():
+                df_ca = df_scored[df_scored["Ca học"] == ca].copy().reset_index(drop=True)
+                if df_ca.empty:
+                    continue
+                groups = process_ca(df_ca, group_size=GROUP_SIZE)
+                html_summary = summarize_groups_html(groups, ca)
+                html_summaries.append(html_summary)
+
+            cols_display = [
+                "STT","MSSV","Họ tên","Lớp hiện tại","GPA","Điểm ĐTĐM",
+                "Ca học","Mục tiêu","Điểm mạnh","Vai trò mong muốn"
+            ]
+            cols_display = [c for c in cols_display if c in df.columns]
+            df = df[cols_display]
+
+
+        elif action == "export" and df is not None:
+            df = compute_scores(prepare_df(file_path))
+            all_ca = df["Ca học"].unique()
+            result_rows = []
+
+            for ca in all_ca:
+                df_ca = df[df["Ca học"] == ca].copy().reset_index(drop=True)
+                if df_ca.empty:
+                    continue
+                groups = process_ca(df_ca, group_size=GROUP_SIZE)
+                summarize_groups_html(groups, ca)  # nếu muốn hiện nhóm trên web
+                for gid, g in enumerate(groups, 1):
+                    for mem in g:
+                        row = mem.copy()
+                        row["GroupID"] = f"{ca}_G{gid}"
+                        result_rows.append(row)
+
+            out_df = pd.DataFrame(result_rows)
+
+            # thêm cột STT
+            out_df.insert(0, "STT", range(1, len(out_df) + 1))
+
+            cols_order = [
+                "STT","GroupID","MSSV","Họ tên","Lớp hiện tại","Ca học",
+                "GPA","Điểm ĐTĐM","ĐTĐM_4","Điểm tổng",
+                "Vai trò mong muốn","Mục tiêu","Điểm mạnh"
+            ]
+            cols_present = [c for c in cols_order if c in out_df.columns]
+            out_df = out_df[cols_present]
+
+
+            # Xuất file trực tiếp về client (không lưu trên server)
+            output_file = f"{selected_class}_grouped.csv"
+            buf = io.StringIO()
+            out_df.to_csv(buf, index=False, encoding="utf-8-sig")
+            buf.seek(0)
+
+            return send_file(
+                io.BytesIO(buf.getvalue().encode("utf-8-sig")),
+                as_attachment=True,
+                download_name=output_file,
+                mimetype="text/csv"
+            )
+    return render_template("admin.html", 
+                           classes=classes, 
+                           selected_class=selected_class,
+                           df=df, 
+                           grouped=grouped, 
+                           output_file=output_file,
+                           html_summaries=html_summaries)
+
 
 from waitress import serve
 

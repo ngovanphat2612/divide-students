@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Quản trị</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body>
+<div class="container">
+    <!-- nút đăng xuất -->
+    <a href="{{ url_for('logout') }}" class="logout-btn">Đăng xuất</a>
+
+    <form method="get" action="{{ url_for('admin') }}">
+        <label>Chọn lớp:</label>
+        <select name="class">
+            {% for cls in classes %}
+            <option value="{{ cls }}" {% if selected_class==cls %}selected{% endif %}>{{ cls }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="primary-btn">Xem</button>
+    </form>
+
+    {% if df is not none %}
+        <h3>Dữ liệu lớp {{ selected_class }}</h3>
+        <div class="table-container">
+            {{ df.to_html(index=False, classes="styled-table") | safe }}
+        </div>
+
+        <form method="get" action="{{ url_for('admin') }}">
+            <input type="hidden" name="class" value="{{ selected_class }}">
+            <input type="hidden" name="action" value="group">
+            <button type="submit" class="primary-btn">Chia nhóm</button>
+        </form>
+
+        {% if html_summaries %}
+            <h3>Kết quả chia nhóm</h3>
+            {% for summary in html_summaries %}
+                <div class="table-container">
+                    {{ summary | safe }}
+                </div>
+            {% endfor %}
+
+            <form method="get" action="{{ url_for('admin') }}">
+                <input type="hidden" name="class" value="{{ selected_class }}">
+                <input type="hidden" name="action" value="export">
+                <button type="submit" class="primary-btn">Xuất file CSV</button>
+            </form>
+            {% if output_file %}
+                <p>✅ Đã lưu: {{ output_file }}</p>
+            {% endif %}
+        {% endif %}
+
+    {% endif %}
+</div>
+</body>
+</html>

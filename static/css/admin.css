@@ -1,0 +1,153 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f0f2f5;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    margin: 0;
+    padding-top: 30px;
+}
+
+.container {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    width: 95%;
+    max-width: 1000px;
+    box-sizing: border-box;
+    margin: 0 auto;
+}
+
+h3 {
+    margin-top: 20px;
+    color: #333;
+}
+
+.logout-btn {
+    display: inline-block;
+    margin-bottom: 15px;
+    padding: 10px 15px;
+    border-radius: 8px;
+    text-decoration: none;
+    background-color: #e74c3c;
+    color: white;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+.logout-btn:hover {
+    background-color: #c0392b;
+}
+
+form {
+    margin: 15px 0;
+}
+
+form label {
+    font-weight: bold;
+    display: block;
+    margin: 10px 0 5px;
+}
+
+select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background-color: #f9f9f9;
+    font-size: 14px;
+    cursor: pointer;
+    margin-bottom: 10px;
+}
+
+button {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+
+.primary-btn {
+    background-color: #4CAF50;
+    color: white;
+}
+.primary-btn:hover {
+    background-color: #45a049;
+}
+
+/* Bảng */
+.table-container {
+    overflow-x: auto;
+    margin-top: 10px;
+    margin-bottom: 20px;
+}
+
+.styled-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    font-size: 14px;
+    text-align: left;
+}
+
+.styled-table th, .styled-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
+
+.styled-table th {
+    background-color: #4CAF50;
+    color: white;
+    text-align: center;
+}
+
+.styled-table tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.styled-table tr:hover {
+    background-color: #f1f1f1;
+}
+
+.table-container table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    font-size: 14px;
+    text-align: left;
+}
+
+.table-container th, 
+.table-container td {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
+
+.table-container th {
+    background-color: #4CAF50;
+    color: white;
+    text-align: center;
+}
+
+.table-container tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.table-container tr:hover {
+    background-color: #f1f1f1;
+}
+
+
+@media (max-width: 600px) {
+    .container {
+        padding: 20px;
+    }
+    select, button {
+        font-size: 14px;
+        padding: 8px 10px;
+    }
+}

@@ -195,24 +195,49 @@ def balance_skills(groups, max_iter=300):
             break
     return groups
 
-def summarize_groups(groups, ca_name):
-    print(f"\n===== CA: {ca_name} | Số nhóm = {len(groups)} =====")
-    for i, g in enumerate(groups, 1):
-        if len(g) == 0:
-            print(f"\nNhóm {i}: (rỗng)")
-            continue
-        dfg = pd.DataFrame(g)
-        avg = dfg["Điểm tổng"].mean()
-        leaders = ((dfg["Vai trò mong muốn"] == "Nhóm trưởng") | (dfg["Vai trò mong muốn"] == "Nhóm trưởng (tạm)")).sum()
-        targets = dict(Counter(dfg["Mục tiêu"].tolist()))
-        skillset = set()
-        for s in dfg["Điểm mạnh_list"]:
-            for it in s:
-                skillset.add(it)
-        print(f"\nNhóm {i}: n={len(dfg)} | Điểm TB = {avg:.2f} | Leaders = {leaders}")
-        print("  Mục tiêu:", targets)
-        print("  Kỹ năng có:", skillset)
-        print(dfg[["MSSV","Họ tên","GPA","Điểm ĐTĐM","Điểm tổng","Vai trò mong muốn","Mục tiêu","Điểm mạnh"]].to_string(index=False))
+import pandas as pd
+
+def summarize_groups_html(groups, ca):
+    """Trả về HTML hiển thị chi tiết chia nhóm giống terminal."""
+    html = f"<h4>===== CA: {ca} | Số nhóm = {len(groups)} =====</h4>"
+    
+    for gid, g in enumerate(groups, 1):
+        df = pd.DataFrame(g)
+
+        avg_score = df["Điểm tổng"].mean()
+        leaders = (df["Vai trò mong muốn"] == "Nhóm trưởng").sum()
+        goals = df["Mục tiêu"].value_counts().to_dict()
+
+        # Gom tất cả kỹ năng
+        skills = set()
+        for s in df["Điểm mạnh"]:
+            if isinstance(s, str):
+                for part in s.split(";"):
+                    skills.add(part.strip())
+
+        # Thêm phần tiêu đề nhóm
+        html += f"""
+        <div style='margin:15px 0;padding:10px;border:1px solid #ccc;'>
+          <b>Nhóm {gid}:</b> n={len(df)} | 
+          Điểm TB = {avg_score:.2f} | 
+          Leaders = {leaders}<br>
+          <i>Mục tiêu:</i> {goals}<br>
+          <i>Kỹ năng có:</i> {skills}<br>
+        """
+
+        # Thêm bảng chi tiết
+        df = df.reset_index(drop=True)
+        df.insert(0, "STT", df.index + 1)
+
+        show_cols = ["STT","MSSV","Họ tên","GPA","Điểm ĐTĐM","Điểm tổng",
+                    "Vai trò mong muốn","Mục tiêu","Điểm mạnh"]
+        show_cols = [c for c in show_cols if c in df.columns]
+        html += df[show_cols].to_html(index=False, escape=False)
+
+        html += "</div>"
+
+    return html
+
 
 def process_ca(df_ca, group_size=GROUP_SIZE):
     df_ca = df_ca.copy().reset_index(drop=True)
@@ -222,7 +247,7 @@ def process_ca(df_ca, group_size=GROUP_SIZE):
     groups = balance_skills(groups)
     return groups
 
-def main(input_csv="64HTTT2.csv", output_csv="64HTTT2_grouped.csv"):
+def main(input_csv="sinhvientest.csv", output_csv="sinhvientest_grouped.csv"):
     df = prepare_df(input_csv)
     df = compute_scores(df)
     result_rows = []
@@ -232,7 +257,7 @@ def main(input_csv="64HTTT2.csv", output_csv="64HTTT2_grouped.csv"):
         if df_ca.empty:
             continue
         groups = process_ca(df_ca, group_size=GROUP_SIZE)
-        summarize_groups(groups, ca)
+        summarize_groups_html(groups, ca)
         for gid, g in enumerate(groups, 1):
             for mem in g:
                 row = mem.copy()
