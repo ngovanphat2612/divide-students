@@ -195,27 +195,62 @@ def balance_skills(groups, max_iter=300):
             break
     return groups
 
-import pandas as pd
+def balance_scores(groups, max_iter=300):
+    """Hoán đổi sinh viên để điểm trung bình các nhóm gần nhau nhất."""
+    it = 0
+    while it < max_iter:
+        it += 1
+        moved = False
+        avgs = [pd.DataFrame(g)["Điểm tổng"].mean() for g in groups]
+        max_gid = int(pd.Series(avgs).idxmax())
+        min_gid = int(pd.Series(avgs).idxmin())
+        diff = avgs[max_gid] - avgs[min_gid]
+        if diff < 0.05:  # chênh lệch nhỏ thì dừng
+            break
+        gmax = pd.DataFrame(groups[max_gid])
+        gmin = pd.DataFrame(groups[min_gid])
+        best_pair = None
+        best_gap = diff
+        for _, a in gmax.iterrows():
+            for _, b in gmin.iterrows():
+                new_avgs = avgs.copy()
+                new_avgs[max_gid] = (gmax["Điểm tổng"].sum() - a["Điểm tổng"] + b["Điểm tổng"]) / len(gmax)
+                new_avgs[min_gid] = (gmin["Điểm tổng"].sum() - b["Điểm tổng"] + a["Điểm tổng"]) / len(gmin)
+                new_diff = max(new_avgs) - min(new_avgs)
+                if new_diff < best_gap:
+                    best_gap = new_diff
+                    best_pair = (a, b)
+        if best_pair is not None:
+            a, b = best_pair
+            def replace_member(group, ms_old, new_row):
+                for idx, mem in enumerate(group):
+                    if mem["MSSV"] == ms_old:
+                        group[idx] = new_row.to_dict()
+                        return True
+                return False
+            replace_member(groups[max_gid], a["MSSV"], b)
+            replace_member(groups[min_gid], b["MSSV"], a)
+            moved = True
+        if not moved:
+            break
+    return groups
 
 def summarize_groups_html(groups, ca):
-    """Trả về HTML hiển thị chi tiết chia nhóm giống terminal."""
     html = f"<h4>===== CA: {ca} | Số nhóm = {len(groups)} =====</h4>"
     
     for gid, g in enumerate(groups, 1):
         df = pd.DataFrame(g)
 
         avg_score = df["Điểm tổng"].mean()
-        leaders = (df["Vai trò mong muốn"] == "Nhóm trưởng").sum()
+        leaders = (df["Vai trò mong muốn"].str.contains("Nhóm trưởng")).sum()
         goals = df["Mục tiêu"].value_counts().to_dict()
 
-        # Gom tất cả kỹ năng
         skills = set()
         for s in df["Điểm mạnh"]:
             if isinstance(s, str):
                 for part in s.split(";"):
                     skills.add(part.strip())
 
-        # Thêm phần tiêu đề nhóm
         html += f"""
         <div style='margin:15px 0;padding:10px;border:1px solid #ccc;'>
           <b>Nhóm {gid}:</b> n={len(df)} | 
@@ -225,7 +260,6 @@ def summarize_groups_html(groups, ca):
           <i>Kỹ năng có:</i> {skills}<br>
         """
 
-        # Thêm bảng chi tiết
         df = df.reset_index(drop=True)
         df.insert(0, "STT", df.index + 1)
 
@@ -238,6 +272,244 @@ def summarize_groups_html(groups, ca):
 
     return html
 
+def balance_leader_fairness(groups, score_threshold=0.05):
+    """Đảm bảo nhóm nào cũng có leader thực thụ bằng cách hoán đổi hợp lý dựa trên điểm tổng."""
+    for i, g in enumerate(groups):
+        df_g = pd.DataFrame(g)
+        leaders_g = df_g[df_g["Vai trò mong muốn"] == "Nhóm trưởng"]
+
+        # Nếu nhóm này chưa có leader thực thụ
+        if leaders_g.empty:
+            # Lấy danh sách candidate (thành viên có điểm tổng cao trong nhóm thiếu)
+            candidates = df_g.sort_values("Điểm tổng", ascending=False)
+
+            # Duyệt các nhóm khác để tìm nhóm thừa leader
+            for j, g2 in enumerate(groups):
+                if i == j:
+                    continue
+                df_g2 = pd.DataFrame(g2)
+                leaders_g2 = df_g2[df_g2["Vai trò mong muốn"] == "Nhóm trưởng"]
+
+                # Chỉ xét nhóm có thừa leader
+                if len(leaders_g2) <= 1:
+                    continue
+
+                # Tìm cặp leader ↔ member có Điểm tổng gần nhau
+                best_pair = None
+                best_diff = None
+                for _, mem in candidates.iterrows():
+                    for _, leader in leaders_g2.iterrows():
+                        diff = abs(mem["Điểm tổng"] - leader["Điểm tổng"])
+                        if diff <= score_threshold:
+                            if best_diff is None or diff < best_diff:
+                                best_diff = diff
+                                best_pair = (mem, leader)
+
+                # Nếu tìm được cặp phù hợp thì hoán đổi
+                if best_pair:
+                    mem, leader = best_pair
+
+                    # Hàm hỗ trợ thay thế member trong group
+                    def replace_member(group, ms_old, new_row):
+                        for idx, mem_ in enumerate(group):
+                            if mem_["MSSV"] == ms_old:
+                                group[idx] = new_row.to_dict()
+                                return True
+                        return False
+
+                    # Swap
+                    replace_member(groups[i], mem["MSSV"], leader)
+                    replace_member(groups[j], leader["MSSV"], mem)
+
+                    # Cập nhật vai trò
+                    for m in groups[i]:
+                        if m["MSSV"] == leader["MSSV"]:
+                            m["Vai trò mong muốn"] = "Nhóm trưởng"
+                    for m in groups[j]:
+                        if m["MSSV"] == mem["MSSV"]:
+                            m["Vai trò mong muốn"] = "Thành viên"
+
+                    break  # Xử lý xong nhóm thiếu leader này → thoát
+    return groups
+
+def final_balance_scores(groups, max_iter=300):
+    """Cân bằng điểm trung bình giữa các nhóm sau tất cả các bước chia.
+       Chỉ hoán đổi thành viên thường, giữ nguyên leader chính thức."""
+    it = 0
+    while it < max_iter:
+        it += 1
+        moved = False
+        avgs = [pd.DataFrame(g)["Điểm tổng"].mean() for g in groups]
+        max_gid = int(pd.Series(avgs).idxmax())
+        min_gid = int(pd.Series(avgs).idxmin())
+        diff = avgs[max_gid] - avgs[min_gid]
+
+        gmax = pd.DataFrame(groups[max_gid])
+        gmin = pd.DataFrame(groups[min_gid])
+
+        best_pair = None
+        best_gap = diff
+
+        for _, a in gmax.iterrows():
+            if "Nhóm trưởng" in str(a["Vai trò mong muốn"]):  
+                continue  # giữ nguyên leader
+            for _, b in gmin.iterrows():
+                if "Nhóm trưởng" in str(b["Vai trò mong muốn"]):
+                    continue
+                new_avgs = avgs.copy()
+                new_avgs[max_gid] = (gmax["Điểm tổng"].sum() - a["Điểm tổng"] + b["Điểm tổng"]) / len(gmax)
+                new_avgs[min_gid] = (gmin["Điểm tổng"].sum() - b["Điểm tổng"] + a["Điểm tổng"]) / len(gmin)
+                new_diff = max(new_avgs) - min(new_avgs)
+                if new_diff < best_gap:
+                    best_gap = new_diff
+                    best_pair = (a, b)
+
+        if best_pair:
+            a, b = best_pair
+            def replace_member(group, ms_old, new_row):
+                for idx, mem in enumerate(group):
+                    if mem["MSSV"] == ms_old:
+                        group[idx] = new_row.to_dict()
+                        return True
+                return False
+            replace_member(groups[max_gid], a["MSSV"], b)
+            replace_member(groups[min_gid], b["MSSV"], a)
+            moved = True
+
+        if not moved:
+            break
+    return groups
+
+def rebalance_group_sizes(groups):
+    """Nếu có nhóm 5 và nhóm 4, thử mượn 1 thành viên để cân bằng điểm TB."""
+    for i, g_small in enumerate(groups):
+        if len(g_small) >= 5:
+            continue
+        for j, g_big in enumerate(groups):
+            if len(g_big) <= 4:
+                continue
+
+            best_swap = None
+            best_diff = None
+            for idx, member in enumerate(g_big):
+                if member["Vai trò mong muốn"] == "Nhóm trưởng":
+                    continue  # không mượn leader
+
+                # Thử di chuyển member này
+                new_small = g_small + [member]
+                new_big = g_big[:idx] + g_big[idx+1:]
+
+                tb_small = sum(s["Điểm tổng"] for s in new_small) / len(new_small)
+                tb_big = sum(s["Điểm tổng"] for s in new_big) / len(new_big)
+                tb_all = [sum(s["Điểm tổng"] for s in g) / len(g) for g in groups]
+
+                diff = max(tb_all) - min(tb_all)
+                if best_diff is None or diff < best_diff:
+                    best_diff = diff
+                    best_swap = (i, j, idx)
+
+            if best_swap:
+                i, j, idx = best_swap
+                member = groups[j].pop(idx)
+                groups[i].append(member)
+                return groups  # chỉ làm 1 lần
+    return groups
+
+
+def rebalance_scores_threshold(groups, threshold=0.05):
+    """Nếu lệch điểm TB vượt ngưỡng, swap để ưu tiên cân bằng điểm."""
+    tb_list = [sum(s["Điểm tổng"] for s in g) / len(g) for g in groups]
+    if max(tb_list) - min(tb_list) <= threshold:
+        return groups  # không cần chỉnh
+
+    # Chọn nhóm cao nhất và thấp nhất
+    idx_high = tb_list.index(max(tb_list))
+    idx_low = tb_list.index(min(tb_list))
+    g_high, g_low = groups[idx_high], groups[idx_low]
+
+    best_pair = None
+    best_gap = None
+    for m_high in g_high:
+        if m_high["Vai trò mong muốn"] == "Nhóm trưởng":
+            continue
+        for m_low in g_low:
+            if m_low["Vai trò mong muốn"] == "Nhóm trưởng":
+                continue
+            # swap giả định
+            new_high = [m if m["MSSV"] != m_high["MSSV"] else m_low for m in g_high]
+            new_low = [m if m["MSSV"] != m_low["MSSV"] else m_high for m in g_low]
+
+            tb_high = sum(s["Điểm tổng"] for s in new_high) / len(new_high)
+            tb_low = sum(s["Điểm tổng"] for s in new_low) / len(new_low)
+            gap = abs(tb_high - tb_low)
+
+            if best_gap is None or gap < best_gap:
+                best_gap = gap
+                best_pair = (m_high, m_low, idx_high, idx_low)
+
+    if best_pair:
+        m_high, m_low, idx_high, idx_low = best_pair
+        # thực hiện swap
+        for idx, m in enumerate(groups[idx_high]):
+            if m["MSSV"] == m_high["MSSV"]:
+                groups[idx_high][idx] = m_low
+        for idx, m in enumerate(groups[idx_low]):
+            if m["MSSV"] == m_low["MSSV"]:
+                groups[idx_low][idx] = m_high
+
+    return groups
+
+def strict_balance_scores(groups, threshold=0.05, max_iter=300):
+    it = 0
+    while it < max_iter:
+        it += 1
+        avgs = [pd.DataFrame(g)["Điểm tổng"].mean() for g in groups]
+        max_gid = int(pd.Series(avgs).idxmax())
+        min_gid = int(pd.Series(avgs).idxmin())
+        diff = avgs[max_gid] - avgs[min_gid]
+
+        if diff <= threshold:
+            break
+
+        gmax = pd.DataFrame(groups[max_gid])
+        gmin = pd.DataFrame(groups[min_gid])
+
+        best_pair = None
+        best_gap = diff
+
+        for _, a in gmax.iterrows():
+            if "Nhóm trưởng" in str(a["Vai trò mong muốn"]):
+                continue
+            for _, b in gmin.iterrows():
+                if "Nhóm trưởng" in str(b["Vai trò mong muốn"]):
+                    continue
+
+                new_avgs = avgs.copy()
+                new_avgs[max_gid] = (gmax["Điểm tổng"].sum() - a["Điểm tổng"] + b["Điểm tổng"]) / len(gmax)
+                new_avgs[min_gid] = (gmin["Điểm tổng"].sum() - b["Điểm tổng"] + a["Điểm tổng"]) / len(gmin)
+                new_diff = max(new_avgs) - min(new_avgs)
+
+                if new_diff < best_gap:
+                    best_gap = new_diff
+                    best_pair = (a, b)
+
+        if best_pair:
+            a, b = best_pair
+            # dùng replace_member thay vì gán DataFrame
+            def replace_member(group, ms_old, new_row):
+                for idx, mem in enumerate(group):
+                    if mem["MSSV"] == ms_old:
+                        group[idx] = new_row.to_dict()
+                        return True
+                return False
+
+            replace_member(groups[max_gid], a["MSSV"], b)
+            replace_member(groups[min_gid], b["MSSV"], a)
+        else:
+            break
+    return groups
+
+
 
 def process_ca(df_ca, group_size=GROUP_SIZE):
     df_ca = df_ca.copy().reset_index(drop=True)
@@ -245,6 +517,34 @@ def process_ca(df_ca, group_size=GROUP_SIZE):
     groups = ensure_leaders(groups)
     groups = balance_targets(groups)
     groups = balance_skills(groups)
+    groups = balance_scores(groups)  # thêm bước cân bằng điểm
+    groups = ensure_leaders(groups)  # đảm bảo sau khi hoán đổi vẫn có leader
+    groups = balance_leader_fairness(groups)
+    groups = final_balance_scores(groups)
+    groups = rebalance_group_sizes(groups)
+    groups = rebalance_scores_threshold(groups, threshold=0.05)
+    groups = strict_balance_scores(groups, threshold=0.05)
+
+
+    for group in groups:
+        official_leaders = [s for s in group if s["Vai trò mong muốn"] == "Nhóm trưởng"]
+        temp_leaders = [s for s in group if s["Vai trò mong muốn"] == "Nhóm trưởng (tạm)"]
+
+        if not official_leaders and not temp_leaders:
+            # Nếu chưa có trưởng nào -> chọn 1 người làm trưởng tạm
+            best_candidate = max(group, key=lambda s: s["Điểm tổng"])
+            best_candidate["Vai trò mong muốn"] = "Nhóm trưởng (tạm)"
+        elif official_leaders:
+            # Nếu đã có trưởng chính thức -> xoá hết trưởng tạm
+            for s in temp_leaders:
+                s["Vai trò mong muốn"] = "Thành viên"
+        elif len(temp_leaders) > 1:
+            # Nếu chỉ có toàn trưởng tạm nhưng nhiều hơn 1 -> giữ 1 người điểm cao nhất
+            best_candidate = max(temp_leaders, key=lambda s: s["Điểm tổng"])
+            for s in temp_leaders:
+                if s is not best_candidate:
+                    s["Vai trò mong muốn"] = "Thành viên"
+
     return groups
 
 def main(input_csv="sinhvientest.csv", output_csv="sinhvientest_grouped.csv"):

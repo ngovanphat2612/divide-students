@@ -26,11 +26,21 @@
             {{ df.to_html(index=False, classes="styled-table") | safe }}
         </div>
 
-        <form method="get" action="{{ url_for('admin') }}">
-            <input type="hidden" name="class" value="{{ selected_class }}">
-            <input type="hidden" name="action" value="group">
-            <button type="submit" class="primary-btn">Chia nhóm</button>
-        </form>
+        <div class="button-row">
+            <form method="get" action="{{ url_for('admin') }}">
+                <input type="hidden" name="class" value="{{ selected_class }}">
+                <input type="hidden" name="action" value="group">
+                <button type="submit" class="primary-btn">Chia nhóm</button>
+            </form>
+
+            <form method="get" action="{{ url_for('admin') }}">
+                <input type="hidden" name="class" value="{{ selected_class }}">
+                <input type="hidden" name="action" value="save_original">
+                <button type="submit" class="primary-btn">Lưu danh sách</button>
+            </form>
+        </div>
+
+
 
         {% if html_summaries %}
             <h3>Kết quả chia nhóm</h3>
@@ -43,7 +53,7 @@
             <form method="get" action="{{ url_for('admin') }}">
                 <input type="hidden" name="class" value="{{ selected_class }}">
                 <input type="hidden" name="action" value="export">
-                <button type="submit" class="primary-btn">Xuất file CSV</button>
+                <button type="submit" class="primary-btn">Lưu kết quả</button>
             </form>
             {% if output_file %}
                 <p>✅ Đã lưu: {{ output_file }}</p>

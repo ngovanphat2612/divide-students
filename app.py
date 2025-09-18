@@ -232,6 +232,18 @@ def admin():
             cols_display = [c for c in cols_display if c in df.columns]
             df = df[cols_display]
 
+        elif action == "save_original" and df is not None:
+            output_file = f"{selected_class}.csv"
+            buf = io.StringIO()
+            df.to_csv(buf, index=False, encoding="utf-8-sig")
+            buf.seek(0)
+
+            return send_file(
+                io.BytesIO(buf.getvalue().encode("utf-8-sig")),
+                as_attachment=True,
+                download_name=output_file,
+                mimetype="text/csv"
+            )
 
         elif action == "export" and df is not None:
             df = compute_scores(prepare_df(file_path))
