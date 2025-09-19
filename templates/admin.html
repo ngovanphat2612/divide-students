@@ -7,9 +7,10 @@
 </head>
 <body>
 <div class="container">
-    <!-- nút đăng xuất -->
+    <!-- Nút đăng xuất -->
     <a href="{{ url_for('logout') }}" class="logout-btn">Đăng xuất</a>
 
+    <!-- Chọn lớp -->
     <form method="get" action="{{ url_for('admin') }}">
         <label>Chọn lớp:</label>
         <select name="class">
@@ -20,28 +21,30 @@
         <button type="submit" class="primary-btn">Xem</button>
     </form>
 
-    {% if df is not none %}
-        <h3>Dữ liệu lớp {{ selected_class }}</h3>
-        <div class="table-container">
-            {{ df.to_html(index=False, classes="styled-table") | safe }}
-        </div>
-
+    {% if selected_class %}
         <div class="button-row">
-            <form method="get" action="{{ url_for('admin') }}">
+            <form method="get" action="{{ url_for('admin') }}" style="display:inline-block;">
                 <input type="hidden" name="class" value="{{ selected_class }}">
                 <input type="hidden" name="action" value="group">
                 <button type="submit" class="primary-btn">Chia nhóm</button>
             </form>
 
-            <form method="get" action="{{ url_for('admin') }}">
+            <form method="get" action="{{ url_for('admin') }}" style="display:inline-block;">
                 <input type="hidden" name="class" value="{{ selected_class }}">
                 <input type="hidden" name="action" value="save_original">
                 <button type="submit" class="primary-btn">Lưu danh sách</button>
             </form>
         </div>
 
+        {% if df is not none %}
+            <h3>Dữ liệu lớp {{ selected_class }}</h3>
+            <div class="table-container">
+                {{ df.to_html(index=False, classes="styled-table") | safe }}
+            </div>
+        {% endif %}
 
 
+        <!-- Hiển thị kết quả chia nhóm -->
         {% if html_summaries %}
             <h3>Kết quả chia nhóm</h3>
             {% for summary in html_summaries %}
@@ -55,12 +58,9 @@
                 <input type="hidden" name="action" value="export">
                 <button type="submit" class="primary-btn">Lưu kết quả</button>
             </form>
-            {% if output_file %}
-                <p>✅ Đã lưu: {{ output_file }}</p>
-            {% endif %}
         {% endif %}
-
     {% endif %}
+
 </div>
 </body>
 </html>
