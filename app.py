@@ -288,4 +288,6 @@ def admin():
 from waitress import serve
 
 if __name__ == "__main__":
-    serve(app, host="0.0.0.0", port=5000, threads=10)
+    cores = 5
+    threads = cores * 6
+    serve(app, host="0.0.0.0", port=5000, threads=threads)
