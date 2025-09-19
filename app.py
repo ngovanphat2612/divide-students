@@ -211,22 +211,27 @@ def admin():
 
     if selected_class:
         class_file = f"{selected_class}.csv"
-        # Kiểm tra file tồn tại và không rỗng
         if os.path.exists(class_file) and os.path.getsize(class_file) > 0:
             df = pd.read_csv(class_file)
             df.insert(0, "STT", range(1, len(df)+1))
         else:
-            df = pd.DataFrame()  # DataFrame rỗng
+            df = pd.DataFrame()
             html_summaries = None
 
         if action == "group" and not df.empty:
-            # Tính điểm tổng
             df['Điểm tổng'] = df.apply(
                 lambda row: row['GPA'] if pd.isna(row['Điểm ĐTĐM']) else 0.6*row['GPA'] + 0.16*row['Điểm ĐTĐM'],
                 axis=1
             )
             html_summaries, all_results = divide_groups(df)
-            session['all_results'] = [g.to_dict('records') for g in all_results]
+
+            session['all_results'] = [
+                {
+                    "records": g.to_dict('records'),
+                    "Ca": g.attrs.get('Ca', 'Unknown')
+                }
+                for g in all_results
+            ]
 
         elif action == "save_original" and not df.empty:
             output_file = f"{selected_class}_original.csv"
@@ -236,53 +241,25 @@ def admin():
                              download_name=f"{selected_class}_original.csv",
                              mimetype='text/csv')
 
-        elif action == "export" and df is not None and not df.empty:
-            # Tính lại Điểm tổng nếu cần
-            df['Điểm tổng'] = df.apply(
-                lambda row: row['GPA'] if pd.isna(row['Điểm ĐTĐM']) else 0.6*row['GPA'] + 0.16*row['Điểm ĐTĐM'],
-                axis=1
-            )
-
+        elif action == "export" and 'all_results' in session:
+            all_results = session['all_results']
             result_rows = []
 
-            # Lấy danh sách Ca học có trong lớp
-            all_ca = df['Ca học'].dropna().unique()
+            for group_idx, g_dict in enumerate(all_results, 1):
+                g_df = pd.DataFrame(g_dict["records"])
+                ca = g_dict.get("Ca", "Unknown")
+                group_id = f"G{group_idx}_{ca}"
+                for mem in g_df.to_dict('records'):
+                    mem['GroupID'] = group_id
+                    result_rows.append(mem)
 
-            for ca in all_ca:
-                df_ca = df[df['Ca học'] == ca].copy().reset_index(drop=True)
-                if df_ca.empty:
-                    continue
-
-                # Lấy số lượng nhóm (ví dụ 5 người / nhóm)
-                max_group_size = 5
-                n_students = len(df_ca)
-                n_groups = (n_students + max_group_size - 1) // max_group_size
-
-                # Sắp xếp theo Điểm tổng giảm dần
-                df_ca = df_ca.sort_values('Điểm tổng', ascending=False).reset_index(drop=True)
-
-                # Chia nhóm
-                groups = [[] for _ in range(n_groups)]
-                for i, (_, row) in enumerate(df_ca.iterrows()):
-                    groups[i % n_groups].append(row.to_dict())
-
-                # Thêm GroupID đúng cú pháp
-                for gid, g in enumerate(groups, 1):
-                    for mem in g:
-                        mem['GroupID'] = f"G{gid}_{ca}"
-                        result_rows.append(mem)
-
-            # Tạo DataFrame export
             export_df = pd.DataFrame(result_rows)
 
-            # Nếu export_df đã có cột STT cũ, xóa đi
             if "STT" in export_df.columns:
                 export_df = export_df.drop(columns=["STT"])
 
-            # Thêm STT mới theo thứ tự xuất ra
             export_df.insert(0, "STT", range(1, len(export_df)+1))
 
-            # Sắp xếp cột theo mẫu
             desired_order = [
                 "STT", "GroupID", "MSSV", "Họ tên", "Lớp hiện tại",
                 "GPA", "Điểm ĐTĐM", "Điểm tổng",
@@ -290,7 +267,6 @@ def admin():
             ]
             export_df = export_df[[c for c in desired_order if c in export_df.columns]]
 
-            # Xuất file CSV trực tiếp về client
             output_file = f"{selected_class}_grouped.csv"
             buf = io.StringIO()
             export_df.to_csv(buf, index=False, encoding="utf-8-sig")
@@ -302,7 +278,6 @@ def admin():
                 download_name=output_file,
                 mimetype="text/csv"
             )
-
 
     return render_template("admin.html",
                            classes=classes,

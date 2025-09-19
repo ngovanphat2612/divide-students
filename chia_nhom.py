@@ -1,7 +1,7 @@
 import pandas as pd
 import itertools
 
-def divide_groups(df, min_group_size=4, max_group_size=5):
+def divide_groups(df, max_group_size=5):
 
     all_results = []
     ca_groups = df['Ca học'].unique()
@@ -26,7 +26,6 @@ def divide_groups(df, min_group_size=4, max_group_size=5):
         max_iter = 500
         iter_count = 0
 
-        # Lấy trước Điểm tổng để tính nhanh
         group_scores = [g['Điểm tổng'].values.copy() for g in groups]
 
         while improved and iter_count < max_iter:
@@ -45,7 +44,6 @@ def divide_groups(df, min_group_size=4, max_group_size=5):
 
             for i, s_max in enumerate(max_scores):
                 for j, s_min in enumerate(min_scores):
-                    # swap tạm thời chỉ 2 giá trị Điểm tổng
                     temp_max_scores = max_scores.copy()
                     temp_min_scores = min_scores.copy()
                     temp_max_scores[i], temp_min_scores[j] = s_min, s_max
@@ -55,7 +53,6 @@ def divide_groups(df, min_group_size=4, max_group_size=5):
                     new_avg_scores[min_idx] = temp_min_scores.mean()
                     new_diff = max(new_avg_scores) - min(new_avg_scores)
 
-                    # skill_div: swap skill của 2 sinh viên
                     skills_max = set(max_group['Điểm mạnh'].iloc[i].split("; ")) if pd.notna(max_group['Điểm mạnh'].iloc[i]) else set()
                     skills_min = set(min_group['Điểm mạnh'].iloc[j].split("; ")) if pd.notna(min_group['Điểm mạnh'].iloc[j]) else set()
                     temp_max_skills = set(itertools.chain.from_iterable(
@@ -74,12 +71,10 @@ def divide_groups(df, min_group_size=4, max_group_size=5):
 
             if best_swap is not None:
                 i, j = best_swap
-                # swap trực tiếp 2 row
                 tmp_row = max_group.loc[i].copy()
                 max_group.loc[i] = min_group.loc[j]
                 min_group.loc[j] = tmp_row
 
-                # update Điểm tổng array
                 max_scores[i], min_scores[j] = min_scores[j], max_scores[i]
 
                 group_scores[max_idx] = max_scores
@@ -87,12 +82,10 @@ def divide_groups(df, min_group_size=4, max_group_size=5):
 
                 improved = True
 
-                # update leader
                 for g in [max_group, min_group]:
                     leaders = g[g['Vai trò mong muốn'].str.contains('Nhóm trưởng', na=False)]
                     g.attrs['Truong'] = leaders.iloc[0]['Họ tên'] if len(leaders) > 0 else g.loc[g['Điểm tổng'].idxmax(), 'Họ tên']
 
-        # xuất HTML
         html = f"<h4>===== CA: {ca} | Số nhóm = {len(groups)} =====</h4>"
         for idx, g in enumerate(groups, 1):
             g.attrs['Ca'] = ca
